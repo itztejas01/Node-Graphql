@@ -1,13 +1,15 @@
+require('dotenv/config')
 const express = require('express');
 const body_parser = require('body-parser');
 const {graphqlHTTP} = require('express-graphql');
 const { buildSchema } = require('graphql');
-
+const mongoose = require("mongoose");
 const app = express();
 
+const Event = require('./models/event')
 
 app.use(body_parser.json());
-const events = [];
+
 
 app.use('/graphqlApi',graphqlHTTP({
     schema:buildSchema(`
@@ -41,28 +43,46 @@ app.use('/graphqlApi',graphqlHTTP({
         }
     `),
     rootValue:{
-        events: () => {
-            return events;
+        events: async() => {
+            const allEvent = await Event.find()
+
+            return allEvent;
         },
-        createEvent: (args)=>{
-            const event = {
-                _id:Math.random().toString(),
+        createEvent: async (args)=>{
+            // const event = {
+            //     _id:Math.random().toString(),
+            //     title:args.eventInput.title, 
+            //     description: args.eventInput.description, 
+            //     price: +args.eventInput.price, 
+            //     date: args.eventInput.date   
+            // }
+
+            const event = new Event({              
                 title:args.eventInput.title, 
                 description: args.eventInput.description, 
                 price: +args.eventInput.price, 
-                date: args.eventInput.date   
-            }
-            events.push(event)
-            return event     
+                date: new Date(args.eventInput.date)
+            })
+
+            const eventSave =  await event.save();
+            console.log('event',eventSave);
+            
+            return {...eventSave._doc}
         }
     },
     graphiql:true
 }));
 
-app.get('/',(req,res,next)=>{
-    res.send('hello world')
+
+mongoose.connect(process.env.MONGOOSE_URL,{
+    useNewUrlParser:true,
+    useUnifiedTopology:true,
+    dbName:'graphqldb'
+}).then(()=>{
+    app.listen(3000,()=>{
+        console.log('listening');
+    })
+}).catch(e=>{
+    console.log('err',e);
 })
 
-app.listen(3000,()=>{
-    console.log('listening');
-})
